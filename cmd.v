@@ -1,10 +1,13 @@
 module runcmd
 
+import context
 import io
 import os
 import strings
 
 type IOCopyFn = fn () !
+
+pub type CommandCancelFn = fn () !
 
 @[heap]
 pub struct Command {
@@ -52,15 +55,29 @@ pub mut:
 	stdout ?io.Writer
 	stderr ?io.Writer
 
+	// ctx holds a command context. It may be used to make a command
+	// cancelable or set timeout/deadline for it.
+	ctx ?context.Context
+
+	// cancel function is used to terminate the child process. Do
+	// not confuse with the context's cancel function.
+	//
+	// The default command cancel function created in with_context()
+	// terminates the command by sending SIGTERM signal to child. You
+	// can override it by setting your own command cancel function.
+	// If cancel is none the child process won't be terminated even
+	// if context is timed out or canceled.
+	cancel ?CommandCancelFn
+
+	// process holds the underlying Process once started.
+	process ?&Process
+
 	// state holds an information about underlying process.
 	// This is set only if process if finished. Call `run()`
 	// or `wait()` to get actual state value.
 	// This value MUST NOT be changed by API user.
 	state ProcessState
 mut:
-	// process holds the underlying Process.
-	process &Process = unsafe { nil }
-
 	// stdio holds a file descriptors for I/O processing.
 	// There is:
 	// * 0 — child process stdin, we must write into it.
@@ -155,7 +172,7 @@ pub fn (mut c Command) combined_output() !string {
 // to complete and release associated resources.
 // Note: `.state` field is not set after `start()` call.
 pub fn (mut c Command) start() !int {
-	if !isnil(c.process) {
+	if c.process != none {
 		return error('runcmd: process already started')
 	}
 
@@ -240,7 +257,10 @@ pub fn (mut c Command) start() !int {
 		post_fork_child_cb:  post_fork_child_cb
 	}
 
-	pid := c.process.start()!
+	mut pid := -1
+	if c.process != none {
+		pid = c.process.start()!
+	}
 
 	// Start I/O copy callbacks.
 	if c.stdio_copy_fns.len > 0 {
@@ -252,8 +272,32 @@ pub fn (mut c Command) start() !int {
 		}
 	}
 
-	// TODO: Handle context here...
+	if c.ctx != none && c.cancel != none {
+		printdbg('${@METHOD}: start watching for context')
+		go c.ctx_watch()
+	}
+
 	return pid
+}
+
+fn (mut c Command) ctx_watch() {
+	mut ch := chan int{}
+	if c.ctx != none {
+		ch = c.ctx.done()
+	}
+	for {
+		select {
+			_ := <-ch {
+				printdbg('${@METHOD}: context is canceled/done')
+				if c.cancel != none {
+					printdbg('${@METHOD}: cancel command now!')
+					c.cancel() or { eprintln('error canceling command: ${err}') }
+					printdbg('${@METHOD}: command canceled!')
+				}
+				return
+			}
+		}
+	}
 }
 
 // wait waits to previously started command is finished. After call see the `.state`
@@ -261,12 +305,14 @@ pub fn (mut c Command) start() !int {
 // `wait()` will return an error if the process has not been started or wait has
 // already been called.
 pub fn (mut c Command) wait() ! {
-	if isnil(c.process) {
+	if c.process == none {
 		return error('runcmd: wait for non-started process')
 	} else if c.state != ProcessState{} {
 		return error('runcmd: wait already called')
 	}
-	c.state = c.process.wait()!
+	if c.process != none {
+		c.state = c.process.wait()!
+	}
 	unsafe { c.release()! }
 }
 

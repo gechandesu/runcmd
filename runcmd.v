@@ -1,13 +1,26 @@
 module runcmd
 
+import context
 import os
 
-// new creates new Command instance with given command name and arguments.
+// new creates new command with given command name and arguments.
 pub fn new(name string, arg ...string) &Command {
 	return &Command{
 		path: name
 		args: arg
 	}
+}
+
+// with_context creates new command with context, command name and arguments.
+pub fn with_context(ctx context.Context, name string, arg ...string) &Command {
+	mut cmd := new(name, ...arg)
+	cmd.ctx = ctx
+	cmd.cancel = fn [mut cmd] () ! {
+		if cmd.process != none {
+			cmd.process.signal(.term)!
+		}
+	}
+	return cmd
 }
 
 // is_present returns true if cmd is present on system. cmd may be a command
