@@ -272,7 +272,7 @@ pub fn (mut c Command) start() !int {
 		}
 	}
 
-	if c.ctx != none && c.cancel != none {
+	if c.ctx != none {
 		printdbg('${@METHOD}: start watching for context')
 		go c.ctx_watch()
 	}
