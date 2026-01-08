@@ -2,7 +2,7 @@ module runcmd
 
 import os
 
-pub type ProcCallbackFn = fn (mut p Process) !
+pub type ProcessHookFn = fn (mut p Process) !
 
 pub struct Process {
 pub:
@@ -18,14 +18,13 @@ pub:
 	// Working directory for the child process.
 	dir string
 
-	// The *_cb fields stores callback functions that will be executed respectively:
-	// - before calling fork();
-	// - after calling fork() in the parent process, until the function exits;
-	// - after calling fork() in the child process, until the working directory is
-	//   changed and execve() is called.
-	pre_fork_cb         ProcCallbackFn = fn (mut p Process) ! {}
-	post_fork_parent_cb ProcCallbackFn = fn (mut p Process) ! {}
-	post_fork_child_cb  ProcCallbackFn = fn (mut p Process) ! {}
+	// The pre_* and post_* fields store the functions that will be executed, respectively:
+	// - before fork() call in the parent process;
+	// - after fork() call in the parent process;
+	// - after fork() call and before execve() call in the child process.
+	pre_fork  []ProcessHookFn
+	post_fork []ProcessHookFn
+	pre_exec  []ProcessHookFn
 mut:
 	pid int = -1
 }
@@ -101,37 +100,51 @@ pub fn (mut p Process) start() !int {
 	if p.pid != -1 {
 		return error('runcmd: process already started')
 	}
-	printdbg('${@METHOD}: current pid before fork() = ${v_getpid()}')
-	printdbg('${@METHOD}: executing pre-fork callback')
-	p.pre_fork_cb(mut p)!
+
+	printdbg('${@METHOD}: executing pre-fork hooks (parent)')
+	for hook in p.pre_fork {
+		hook(mut p)!
+	}
+
 	pid := os.fork()
 	p.pid = pid
 	if pid == -1 {
 		return os.last_error()
 	}
-	printdbg('${@METHOD}: pid after fork() = ${pid}')
+
+	printdbg('${@METHOD}: child pid = ${pid}')
 
 	if pid != 0 {
 		//
 		// This is the parent process
 		//
 
-		printdbg('${@METHOD}: executing post-fork parent callback')
-		p.post_fork_parent_cb(mut p)!
+		printdbg('${@METHOD}: executing post-fork hooks (parent)')
+		for hook in p.post_fork {
+			hook(mut p)!
+		}
 	} else {
 		//
 		// This is the child process
 		//
 
-		printdbg('${@METHOD}: executing post-fork child callback')
-		p.post_fork_child_cb(mut p)!
-		if p.dir != '' {
-			os.chdir(p.dir)!
+		printdbg('${@METHOD}: executing pre-exec hooks (child)')
+		for hook in p.pre_exec {
+			hook(mut p)!
 		}
+
 		mut env := []string{}
 		for k, v in p.env {
 			env << k + '=' + v
 		}
+
+		// If the working directory change was performed in a pre-exec hook,
+		// then calling os.chdir() again should be avoided. So current working
+		// directory could be checked here.
+		if p.dir != '' && os.getwd() != p.dir {
+			os.chdir(p.dir)!
+		}
+
 		os.execve(p.path, p.argv, env)!
 	}
 
@@ -163,7 +176,7 @@ pub fn (p &Process) signal(sig os.Signal) ! {
 	}
 }
 
-// kill send SIGKILL to the child process.
+// kill sends SIGKILL to the child process.
 pub fn (p &Process) kill() ! {
 	p.signal(.kill)!
 }

@@ -27,9 +27,9 @@ pub mut:
 	// `maps` module: `maps.merge(os.environ(), {'MYENV': 'value'})`
 	env map[string]string
 
-	// dir specifies the current working directory for the child
-	// process. If not specified, the current working directory will
-	// be used.
+	// dir specifies the working directory for the child process.
+	// If not specified, the current working directory of parent
+	// will be used.
 	dir string
 
 	// If true create pipes for standart in/out/err streams and
@@ -69,6 +69,11 @@ pub mut:
 	// if context is timed out or canceled.
 	cancel ?CommandCancelFn
 
+	// pre_exec_hooks will be called before starting the command in
+	// the child process. Hooks can be used to modify a child's envi-
+	// ronment, for example to perform a chroot.
+	pre_exec_hooks []ProcessHookFn
+
 	// process holds the underlying Process once started.
 	process ?&Process
 
@@ -94,7 +99,7 @@ mut:
 	stdio_copy_fns []IOCopyFn
 }
 
-// run starts a specified command and waits for it. After call see the .state
+// run starts a specified command and waits for it. After call see the `.state`
 // value to get finished process identifier, exit status and other attributes.
 // `run()` is shorthand for:
 // ```v
@@ -110,12 +115,15 @@ pub fn (mut c Command) run() ! {
 // status is non-zero `ExitError` error is returned.
 // Example:
 // ```v
+// import runcmd
+//
 // mut okcmd := runcmd.new('sh', '-c', 'echo Hello, World!')
-// output := okcmd.output()!
+// ok_out := okcmd.output()!
+// println(ok_out)
 // // Hello, World!
 //
 // mut badcmd := runcmd.new('sh', '-c', 'echo -n Error! >&2; false')
-// output := badcmd.output() or {
+// bad_out := badcmd.output() or {
 // 	if err is runcmd.ExitError {
 // 		eprintln(err)
 // 		exit(err.code())
@@ -124,14 +132,15 @@ pub fn (mut c Command) run() ! {
 // 		panic(err)
 // 	}
 // }
+// println(bad_out)
 // // &runcmd.ExitError{
 // //    state: exit status 1
 // //    stderr: 'Error!'
 // // }
 // ```
 pub fn (mut c Command) output() !string {
-	mut out := strings.new_builder(4096)
-	mut err := strings.new_builder(4096)
+	mut out := strings.new_builder(2048)
+	mut err := strings.new_builder(2048)
 	c.redirect_stdio = true
 	c.stdout = out
 	c.stderr = err
@@ -152,8 +161,10 @@ pub fn (mut c Command) output() !string {
 // reading from the corresponding file descriptors is done concurrently.
 // Example:
 // ```v
+// import runcmd
 // mut cmd := runcmd.new('sh', '-c', 'echo Hello, STDOUT!; echo Hello, STDERR! >&2')
 // output := cmd.combined_output()!
+// println(output)
 // // Hello, STDOUT!
 // // Hello, STDERR!
 // ```
@@ -183,7 +194,7 @@ pub fn (mut c Command) start() !int {
 		pipes[2] = pipe()! // stderr
 	}
 
-	post_fork_parent_cb := fn [mut c, pipes] (mut p Process) ! {
+	parent_pipes_hook := fn [mut c, pipes] (mut p Process) ! {
 		if !c.redirect_stdio {
 			return
 		}
@@ -195,7 +206,8 @@ pub fn (mut c Command) start() !int {
 		fd_close(pipes[2].w)!
 	}
 
-	post_fork_child_cb := fn [mut c, pipes] (mut p Process) ! {
+	child_pipes_hook := fn [mut c, pipes] (mut p Process) ! {
+		printdbg('child pipes hook!')
 		if !c.redirect_stdio {
 			return
 		}
@@ -209,6 +221,9 @@ pub fn (mut c Command) start() !int {
 		fd_close(pipes[1].w)!
 		fd_close(pipes[2].w)!
 	}
+
+	mut pre_exec_hooks := [child_pipes_hook]
+	pre_exec_hooks << c.pre_exec_hooks
 
 	if c.redirect_stdio {
 		if c.stdin != none {
@@ -247,14 +262,15 @@ pub fn (mut c Command) start() !int {
 
 	// Prepare and start child process.
 	path := look_path(c.path)!
+	printdbg('${@METHOD}: executable found: ${path}')
 	c.path = path
 	c.process = &Process{
-		path:                path
-		argv:                c.args
-		env:                 if c.env.len == 0 { os.environ() } else { c.env }
-		dir:                 if c.dir == '' { os.getwd() } else { c.dir }
-		post_fork_parent_cb: post_fork_parent_cb
-		post_fork_child_cb:  post_fork_child_cb
+		path:      path
+		argv:      c.args
+		env:       if c.env.len == 0 { os.environ() } else { c.env }
+		dir:       c.dir
+		post_fork: [parent_pipes_hook]
+		pre_exec:  pre_exec_hooks
 	}
 
 	mut pid := -1
@@ -335,8 +351,8 @@ pub fn (mut c Command) release() ! {
 }
 
 // stdin returns an open file descriptor associated with the standard
-// input stream of the child process. This descriptor is writable only
-// by the parent process.
+// input stream of the child process. This descriptor is write-only for
+// the parent process.
 pub fn (c Command) stdin() !WriteFd {
 	return if c.stdio[0] != -1 {
 		WriteFd{c.stdio[0]}
