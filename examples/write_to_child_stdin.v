@@ -1,4 +1,3 @@
-import io.string_reader
 import strings
 import runcmd
 
@@ -6,12 +5,11 @@ fn main() {
 	input := 'Hello from parent process!'
 
 	// Prepare reader and writer.
-	//
 	// * `reader` reads input from the parent process; it will be copied to the
 	//    standard input of the child process.
 	// * `writer` accepts data from the child process; it will be copied from the
 	//    standard output of the child process.
-	mut reader := string_reader.StringReader.new(reader: runcmd.buffer(input.bytes()), source: input)
+	mut reader := runcmd.buffer(input.bytes())
 	mut writer := strings.new_builder(4096)
 
 	// Prepare the command.
