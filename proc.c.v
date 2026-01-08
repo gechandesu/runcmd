@@ -98,34 +98,43 @@ pub fn (s ProcessState) str() string {
 // [execve(3p)](https://man7.org/linux/man-pages/man3/exec.3p.html)
 // calls. Return value is the child process identifier.
 pub fn (mut p Process) start() !int {
+	if p.pid != -1 {
+		return error('runcmd: process already started')
+	}
 	printdbg('${@METHOD}: current pid before fork() = ${v_getpid()}')
 	printdbg('${@METHOD}: executing pre-fork callback')
 	p.pre_fork_cb(mut p)!
 	pid := os.fork()
 	p.pid = pid
+	if pid == -1 {
+		return os.last_error()
+	}
 	printdbg('${@METHOD}: pid after fork() = ${pid}')
 
 	if pid != 0 {
 		//
-		// This is the parent process after the fork
+		// This is the parent process
 		//
+
 		printdbg('${@METHOD}: executing post-fork parent callback')
 		p.post_fork_parent_cb(mut p)!
-		return pid
+	} else {
+		//
+		// This is the child process
+		//
+
+		printdbg('${@METHOD}: executing post-fork child callback')
+		p.post_fork_child_cb(mut p)!
+		if p.dir != '' {
+			os.chdir(p.dir)!
+		}
+		mut env := []string{}
+		for k, v in p.env {
+			env << k + '=' + v
+		}
+		os.execve(p.path, p.argv, env)!
 	}
-	//
-	// This is the child process
-	//
-	printdbg('${@METHOD}: executing post-fork child callback')
-	p.post_fork_child_cb(mut p)!
-	if p.dir != '' {
-		os.chdir(p.dir)!
-	}
-	mut env := []string{}
-	for k, v in p.env {
-		env << k + '=' + v
-	}
-	os.execve(p.path, p.argv, env)!
+
 	return pid
 }
 
