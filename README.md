@@ -9,7 +9,7 @@ but I don't like any of them. So let's overview.
 
 * `os.execvp()`, `os.execve()` — cross-platform versions of the C functions of the same name.
 
-* `os.execute()`, `os.execute_opt()`, `os.execute_or_exit()`, `os.execute_or_panic()` — starts and waits for a command to completed. Under the hood, they perform a dirty hack by calling shell with stream redirection `'exec 2>&1;${cmd}'`. Only stdout and exit_code are available in Result.
+* `os.execute()`, `os.execute_opt()`, `os.execute_or_exit()`, `os.execute_or_panic()` — starts and waits for a command to completed. Under the hood, they perform a dirty hack by calling shell with stream redirection `'exec 2>&1;${cmd}'`.
 
 * `util.execute_with_timeout()` (from `os.util`) — just an `os.execute()` wrapper.
 
