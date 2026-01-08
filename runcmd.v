@@ -33,9 +33,10 @@ pub fn is_present(cmd string) bool {
 }
 
 // look_path returns the absolute path to executable file. cmd may be a command
-// name or filepath (relative or absolute). If the name contains a slash, then the
-// PATH search is not performed, instead the path will be resolved and the file
-// existence and its permissions will be checked (execution must be allowed).
+// name or filepath (relative or absolute). The command is searched in PATH. If
+// the name contains a slash, then the PATH search is not performed, instead the
+// path will be resolved and the file existence will be checked. In both cases
+// the file must have the execute permission bit enabled.
 // Note: To use executables located in the current working directory use './file'
 // instead of just 'file'. Searching for executable files in the current directory
 // is disabled for security reasons. See https://go.dev/blog/path-security.
