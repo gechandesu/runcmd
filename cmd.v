@@ -268,7 +268,7 @@ pub fn (mut c Command) start() !int {
 		path:      path
 		argv:      c.args
 		env:       if c.env.len == 0 { os.environ() } else { c.env }
-		dir:       c.dir
+		dir:       os.abs_path(c.dir)
 		post_fork: [parent_pipes_hook]
 		pre_exec:  pre_exec_hooks
 	}
