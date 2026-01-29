@@ -1,5 +1,22 @@
+import io
 import strings
 import runcmd
+
+struct ByteBuffer {
+	bytes []u8
+mut:
+	pos int
+}
+
+// read reads `buf.len` bytes from internal bytes buffer and returns number of bytes read.
+pub fn (mut b ByteBuffer) read(mut buf []u8) !int {
+	if b.pos >= b.bytes.len {
+		return io.Eof{}
+	}
+	n := copy(mut buf, b.bytes[b.pos..])
+	b.pos += n
+	return n
+}
 
 fn main() {
 	input := 'Hello from parent process!'
@@ -8,8 +25,10 @@ fn main() {
 	// * `reader` reads input from the parent process; it will be copied to the
 	//    standard input of the child process.
 	// * `writer` accepts data from the child process; it will be copied from the
-	//    standard output of the child process.
-	mut reader := runcmd.buffer(input.bytes())
+	//    standard output of the child process. This is optinal.
+	mut reader := ByteBuffer{
+		bytes: input.bytes()
+	}
 	mut writer := strings.new_builder(4096)
 
 	// Prepare the command.
