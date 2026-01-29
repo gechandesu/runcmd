@@ -9,7 +9,7 @@ but I don't like any of them. So let's overview.
 
 * `os.execvp()`, `os.execve()` — cross-platform versions of the C functions of the same name.
 
-* `os.execute()`, `os.execute_opt()`, `os.execute_or_exit()`, `os.execute_or_panic()` — starts and waits for a command to completed. Under the hood, they perform a dirty hack by calling shell with stream redirection `'exec 2>&1;${cmd}'`.
+* `os.execute()`, `os.execute_opt()`, `os.execute_or_exit()`, `os.execute_or_panic()`, `os.raw_execute()` — starts and waits for a command to completed. Under the hood, they perform a dirty hack by calling shell with stream redirection `'exec 2>&1;${cmd}'`.
 
 * `util.execute_with_timeout()` (from `os.util`) — just an `os.execute()` wrapper.
 
@@ -55,7 +55,6 @@ directory. **Examples are very important**.
 
 - [x] Basic implementation.
 - [x] Contexts support for creating cancelable commands, commands with timeouts, etc.
-- [ ] Process groups support, pgkill().
 - [ ] Better error handling and more tests...
 
 Send pull requests for additional features/bugfixes.
