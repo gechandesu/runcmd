@@ -1,7 +1,7 @@
 Module {
 	name: 'runcmd'
 	description: 'Run external commands'
-	version: '0.3.0'
+	version: '0.4.0'
 	license: 'Unlicense'
 	repo_url: 'https://github.com/gechandesu/runcmd'
 	dependencies: []
