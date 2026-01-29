@@ -1,4 +1,4 @@
-import io.string_reader
+import io
 import rand
 import runcmd
 import time
@@ -20,7 +20,7 @@ fn main() {
 	mut child_stdout := cmd.stdout()!
 
 	// Prepare reader to store command output.
-	mut output := string_reader.StringReader.new(reader: child_stdout)
+	mut output := io.new_buffered_reader(reader: child_stdout)
 
 	// Start stdout reading in a coroutine.
 	//
@@ -56,4 +56,6 @@ fn main() {
 
 	// wait() will close the child stdout file desciptor by itself.
 	cmd.wait()!
+
+	println('Child state: ${cmd.state}')
 }

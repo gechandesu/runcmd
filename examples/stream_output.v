@@ -1,4 +1,4 @@
-import io.string_reader
+import io
 import runcmd
 
 fn main() {
@@ -14,7 +14,7 @@ fn main() {
 
 	// Setup StringReader with stdout input. Note the cmd.stdout()! call, it
 	// returns the io.Reader interface and reads child process stdout file descriptor.
-	mut reader := string_reader.StringReader.new(reader: cmd.stdout()!)
+	mut reader := io.new_buffered_reader(reader: cmd.stdout()!)
 
 	// Read sdtout line by line until EOF.
 	for {
