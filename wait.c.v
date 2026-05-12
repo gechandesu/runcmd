@@ -1,19 +1,15 @@
 module runcmd
 
-@[trusted]
-fn C.WIFSTOPPED(int) bool
+// fn C.WIFSTOPPED(i32) bool
 
-@[trusted]
-fn C.WCOREDUMP(int) bool
+// fn C.WCOREDUMP(i32) bool
 
-@[trusted]
-fn C.WIFCONTINUED(int) bool
+// fn C.WIFCONTINUED(i32) bool
 
-@[trusted]
-fn C.WSTOPSIG(int) int
+// fn C.WSTOPSIG(i32) int
 
 // WaitStatus stores the result value of [wait(2)](https://www.man7.org/linux/man-pages/man2/wait.2.html) syscall.
-pub type WaitStatus = u32
+pub type WaitStatus = int
 
 // exited returns true if process is exited.
 pub fn (w WaitStatus) exited() bool {
@@ -41,29 +37,29 @@ pub fn (w WaitStatus) term_signal() int {
 	return -1
 }
 
-// stopped returns true if the child process was stopped by delivery of a signal.
-pub fn (w WaitStatus) stopped() bool {
-	return C.WIFSTOPPED(w)
-}
+// // stopped returns true if the child process was stopped by delivery of a signal.
+// pub fn (w WaitStatus) stopped() bool {
+// 	return C.WIFSTOPPED(w)
+// }
 
-// stop_signal returns the number of the signal which caused the child to stop.
-pub fn (w WaitStatus) stop_signal() int {
-	if w.stopped() {
-		return C.WSTOPSIG(w)
-	}
-	return -1
-}
+// // stop_signal returns the number of the signal which caused the child to stop.
+// pub fn (w WaitStatus) stop_signal() int {
+// 	if w.stopped() {
+// 		return C.WSTOPSIG(w)
+// 	}
+// 	return -1
+// }
 
-// continued returns true if the child process was resumed by delivery of SIGCONT.
-pub fn (w WaitStatus) continued() bool {
-	return C.WIFCONTINUED(w)
-}
+// // continued returns true if the child process was resumed by delivery of SIGCONT.
+// pub fn (w WaitStatus) continued() bool {
+// 	return C.WIFCONTINUED(w)
+// }
 
-// coredump returns true if the child produced a core dump.
-// See [core(5)](https://man7.org/linux/man-pages/man5/core.5.html).
-pub fn (w WaitStatus) coredump() bool {
-	if w.signaled() {
-		return C.WCOREDUMP(w)
-	}
-	return false
-}
+// // coredump returns true if the child produced a core dump.
+// // See [core(5)](https://man7.org/linux/man-pages/man5/core.5.html).
+// pub fn (w WaitStatus) coredump() bool {
+// 	if w.signaled() {
+// 		return C.WCOREDUMP(w)
+// 	}
+// 	return false
+// }

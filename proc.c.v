@@ -76,19 +76,20 @@ pub fn (s ProcessState) str() string {
 			sig_str := os.sigint_to_signal_name(sig)
 			str = 'signal: ${sig} (${sig_str})'
 		}
-		s.status.stopped() {
-			str = 'stop signal: ${s.status.stop_signal()}'
-		}
-		s.status.continued() {
-			str = 'continued'
-		}
+		// s.status.stopped() {
+		// 	str = 'stop signal: ${s.status.stop_signal()}'
+		// }
+		// s.status.continued() {
+		// 	str = 'continued'
+		// }
 		else {
 			str = 'unknown'
 		}
 	}
-	if s.status.coredump() {
-		str += ' (core dumped)'
-	}
+
+	// if s.status.coredump() {
+	// 	str += ' (core dumped)'
+	// }
 	return str
 }
 
