@@ -3,7 +3,8 @@ import runcmd
 
 fn main() {
 	// Prepare command.
-	mut cmd := runcmd.new('sh', '-c', r'for i in {1..5}; do echo line $i; sleep .5; done; echo finish!')
+	mut cmd := runcmd.new('sh', '-c',
+		r'for i in {1..5}; do echo line $i; sleep .5; done; echo finish!')
 
 	// This is required to captute standart I/O streams.
 	cmd.redirect_stdio = true
