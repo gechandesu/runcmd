@@ -1,15 +1,11 @@
 module runcmd
 
-@[trusted]
 fn C.WIFSTOPPED(int) bool
 
-@[trusted]
 fn C.WCOREDUMP(int) bool
 
-@[trusted]
 fn C.WIFCONTINUED(int) bool
 
-@[trusted]
 fn C.WSTOPSIG(int) int
 
 // WaitStatus stores the result value of [wait(2)](https://www.man7.org/linux/man-pages/man2/wait.2.html) syscall.
