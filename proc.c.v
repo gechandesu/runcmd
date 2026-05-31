@@ -86,6 +86,7 @@ pub fn (s ProcessState) str() string {
 			str = 'unknown'
 		}
 	}
+
 	if s.status.coredump() {
 		str += ' (core dumped)'
 	}
@@ -145,6 +146,7 @@ pub fn (mut p Process) start() !int {
 			os.chdir(p.dir)!
 		}
 
+		printdbg('${@METHOD}: calling execve() with executable `${p.path}`')
 		os.execve(p.path, p.argv, env)!
 	}
 

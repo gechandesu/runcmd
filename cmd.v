@@ -207,7 +207,7 @@ pub fn (mut c Command) start() !int {
 	}
 
 	child_pipes_hook := fn [mut c, pipes] (mut p Process) ! {
-		printdbg('child pipes hook!')
+		printdbg('Command.start: executing child pipes hook...')
 		if !c.redirect_stdio {
 			return
 		}
@@ -228,21 +228,21 @@ pub fn (mut c Command) start() !int {
 	if c.redirect_stdio {
 		if c.stdin != none {
 			c.stdio_copy_fns << fn [mut c] () ! {
-				printdbg('Command.start: stdin copy callback called')
+				printdbg('Command.start: stdin copy closure: started')
 				mut fd := c.stdin()!
-				printdbg('Command.start: stdin copy callback: child stdin fd=${fd.fd}')
+				printdbg('Command.start: stdin copy closure: child stdin fd=${fd.fd}')
 				if c.stdin != none {
 					// FIXME: V bug?: without `if` guard acessing
 					// to c.stdin causes SIGSEGV.
 					io_copy(mut c.stdin, mut fd, 'copy stdin')!
-					printdbg('Command.start: stdin copy callback: close child stdin fd after copy')
+					printdbg('Command.start: stdin copy closure: close child stdin fd after copy')
 					fd_close(fd.fd)!
 				}
 			}
 		}
 		if c.stdout != none {
 			c.stdio_copy_fns << fn [mut c] () ! {
-				printdbg('Command.start: stdout copy callback called')
+				printdbg('Command.start: stdout copy closure: started')
 				mut fd := c.stdout()!
 				if c.stdout != none {
 					io_copy(mut fd, mut c.stdout, 'copy stdout')!
@@ -251,7 +251,7 @@ pub fn (mut c Command) start() !int {
 		}
 		if c.stderr != none {
 			c.stdio_copy_fns << fn [mut c] () ! {
-				printdbg('Command.start: stderr copy callback called')
+				printdbg('Command.start: stderr copy closure: started')
 				mut fd := c.stderr()!
 				if c.stderr != none {
 					io_copy(mut fd, mut c.stderr, 'copy stderr')!
@@ -283,7 +283,9 @@ pub fn (mut c Command) start() !int {
 		for f in c.stdio_copy_fns {
 			go fn (func IOCopyFn) {
 				printdbg('Command.start: starting I/O copy closure in coroutine')
-				func() or { eprintln('error in I/O copy coroutine: ${err}') }
+				func() or {
+					eprintln('error in I/O copy coroutine: msg=${err.msg()}; code=${err.code()}')
+				}
 			}(f)
 		}
 	}
@@ -358,7 +360,7 @@ pub fn (c Command) stdin() !WriteFd {
 		WriteFd{c.stdio[0]}
 	} else {
 		printdbg('${@METHOD}: invalid fd -1')
-		error_with_code('Bad file descriptor', 9)
+		error_with_code('File descriptor is not set', 9)
 	}
 }
 
@@ -370,7 +372,7 @@ pub fn (c Command) stdout() !ReadFd {
 		ReadFd{c.stdio[1]}
 	} else {
 		printdbg('${@METHOD}: invalid fd -1')
-		error_with_code('Bad file descriptor', 9)
+		error_with_code('File descriptor is not set', 9)
 	}
 }
 
@@ -382,7 +384,7 @@ pub fn (c Command) stderr() !ReadFd {
 		ReadFd{c.stdio[2]}
 	} else {
 		printdbg('${@METHOD}: invalid fd -1')
-		error_with_code('Bad file descriptor', 9)
+		error_with_code('File descriptor is not set', 9)
 	}
 }
 
@@ -412,11 +414,14 @@ fn io_copy(mut src io.Reader, mut dst io.Writer, msg string) ! {
 	}
 	for {
 		nr := src.read(mut buf) or {
-			printdbg('${@FN}: (${msg}) got error from reader, breaking loop: ${err}')
+			printdbg("${@FN}: (${msg}) got error from reader, breaking loop: msg='${err.msg()}'; code=${err.code()}")
 			break
 		}
 		printdbg('${@FN}: (${msg}) ${nr} bytes read from src to buf')
-		nw := dst.write(buf[..nr]) or { return err }
+		nw := dst.write(buf[..nr]) or {
+			printdbg("${@FN}: (${msg}) got error from writer, exiting: msg='${err.msg()}'; code=${err.code()}")
+			return err
+		}
 		printdbg('${@FN}: (${msg}) ${nw} bytes written to dst')
 	}
 }
